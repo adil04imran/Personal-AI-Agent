@@ -140,7 +140,7 @@ def verify_firebase_token(request: Request) -> str:
         return decoded_token.get("uid")
     except Exception as e:
         print(f"Token verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────

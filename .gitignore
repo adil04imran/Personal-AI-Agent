@@ -21,3 +21,4 @@ backend/token.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+backend/firebase-adminsdk.json

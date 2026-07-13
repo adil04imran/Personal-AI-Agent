@@ -5,7 +5,7 @@
 import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './firebase-config.js';
 
 // ── Configuration ───────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://personal-ai-agent-very.onrender.com';
 let USER_ID  = null; // Set dynamically via Firebase Auth
 let AUTH_TOKEN = null;
 
@@ -267,11 +267,13 @@ async function handleSend() {
   const thinkingId = appendThinking();
 
   try {
+    const currentToken = await auth.currentUser?.getIdToken();
+    
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AUTH_TOKEN}`
+        'Authorization': `Bearer ${currentToken}`
       },
       body: JSON.stringify({
         message: text,
@@ -319,11 +321,13 @@ async function handleConfirmation(confirmed) {
   const thinkingId = appendThinking();
 
   try {
+    const currentToken = await auth.currentUser?.getIdToken();
+
     const res = await fetch(`${API_BASE}/api/confirm`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AUTH_TOKEN}`
+        'Authorization': `Bearer ${currentToken}`
       },
       body: JSON.stringify({
         thread_id: currentThreadId,
