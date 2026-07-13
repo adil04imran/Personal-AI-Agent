@@ -310,6 +310,50 @@ body {
   gap: 8px;
 }
 
+.auth-section {
+  display: flex;
+  align-items: center;
+}
+
+.btn-login {
+  background: var(--bg-surface-hov);
+  border: 1px solid var(--border-bright);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-login:hover {
+  background: var(--accent-gradient);
+  border-color: transparent;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  padding: 4px;
+  padding-left: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.auth-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-bright);
+}
+
+
 /* ── Icon Button ─────────────────────────────────────────────────────────── */
 .icon-btn {
   width: 36px; height: 36px;
@@ -728,6 +772,25 @@ body {
   padding: 1px 5px;
   font-size: 0.65rem;
   font-family: var(--font);
+}
+
+.voice-btn.recording {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.1);
+  animation: pulse-record 1.5s infinite;
+}
+
+@keyframes pulse-record {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+#btn-tts[data-state="unmuted"] {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
 }
 
 /* ── Fade In ─────────────────────────────────────────────────────────────── */

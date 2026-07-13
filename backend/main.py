@@ -5,11 +5,14 @@ Exposes RESTful endpoints for agent interaction, state management, and Human-in-
 import os
 import uuid
 import asyncio
+import json
+import firebase_admin
+from firebase_admin import credentials, auth
 from functools import partial
-from typing import Optional
+from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +22,18 @@ from dotenv import load_dotenv
 from backend.agent import get_graph
 
 load_dotenv()
+
+# ─── Firebase Admin Setup ─────────────────────────────────────────────────────
+# Initialize Firebase Admin if the service account key exists
+firebase_cred_path = os.path.join(os.path.dirname(__file__), "firebase-adminsdk.json")
+if not os.path.exists(firebase_cred_path):
+    firebase_cred_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "firebase-adminsdk.json")
+if os.path.exists(firebase_cred_path):
+    cred = credentials.Certificate(firebase_cred_path)
+    firebase_admin.initialize_app(cred)
+    print("Firebase Admin SDK initialized successfully.")
+else:
+    print("WARNING: firebase-adminsdk.json not found. Auth will fail.")
 
 # ─── Lifespan ────────────────────────────────────────────────────────────────
 @asynccontextmanager
@@ -106,18 +121,41 @@ def _extract_text_response(state: dict) -> tuple[str, bool, Optional[str]]:
     return "I processed your request.", requires_confirmation, None
 
 
+# ─── Authentication Middleware/Dependency ───────────────────────────────────
+def verify_firebase_token(request: Request) -> str:
+    """Verifies the Firebase Auth ID token from the Authorization header."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    
+    token = auth_header.split("Bearer ")[1]
+    
+    if not os.path.exists(firebase_cred_path):
+        # Fallback for local testing without Firebase Admin
+        print("WARNING: Bypassing auth because Firebase Admin is not configured.")
+        return "default_user"
+        
+    try:
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token.get("uid")
+    except Exception as e:
+        print(f"Token verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
 # ─── Routes ──────────────────────────────────────────────────────────────────
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest, uid: str = Depends(verify_firebase_token)):
     """
     Processes incoming chat requests through the LangGraph state machine.
     Handles thread initialization and graph invocation. If the execution is 
     interrupted for Human-in-the-Loop confirmation, returns a required-confirmation flag.
     """
+    user_id = req.user_id if req.user_id else uid
     graph = get_graph()
     
     # Generate a thread_id if not provided (new conversation)
-    thread_id = request.thread_id or str(uuid.uuid4())
+    thread_id = req.thread_id or str(uuid.uuid4())
     config = {
         "configurable": {
             "thread_id": thread_id,
@@ -126,8 +164,8 @@ async def chat(request: ChatRequest):
     
     # Prepare the input
     input_data = {
-        "messages": [{"role": "user", "content": request.message}],
-        "user_id": request.user_id,
+        "messages": [{"role": "user", "content": req.message}],
+        "user_id": user_id,
         "pending_confirmation": False,
     }
     
@@ -170,22 +208,23 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
 
-@app.post("/api/confirm", response_model=ChatResponse)
-async def confirm(request: ConfirmRequest):
+@app.post("/api/confirm")
+async def confirm_endpoint(req: ConfirmRequest, uid: str = Depends(verify_firebase_token)):
     """
     Resumes graph execution from an interrupted state based on user confirmation.
     Proceeds with the pending tool execution if confirmed, or injects a cancellation message if rejected.
     """
+    user_id = req.user_id if req.user_id else uid
     graph = get_graph()
     config = {
         "configurable": {
-            "thread_id": request.thread_id,
+            "thread_id": req.thread_id,
         }
     }
     
     try:
         loop = asyncio.get_event_loop()
-        if request.confirmed:
+        if req.confirmed:
             # Resume graph execution from the interrupt point (proceed with tool execution)
             final_state = await loop.run_in_executor(
                 None, partial(graph.invoke, None, config=config)
@@ -195,7 +234,7 @@ async def confirm(request: ConfirmRequest):
             # User rejected — add a cancellation message and re-run the agent
             cancel_input = {
                 "messages": [{"role": "user", "content": "Actually, cancel that. Please don't create the event."}],
-                "user_id": request.user_id,
+                "user_id": user_id,
                 "pending_confirmation": False,
             }
             final_state = await loop.run_in_executor(
@@ -206,7 +245,7 @@ async def confirm(request: ConfirmRequest):
         
         return ChatResponse(
             response=response_text or "Done!",
-            thread_id=request.thread_id,
+            thread_id=req.thread_id,
             requires_confirmation=False,
         )
     

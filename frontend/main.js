@@ -2,16 +2,21 @@
  * Application Entry Point & UI Controller
  * Manages the Chat Interface, REST API integrations, and Human-in-the-Loop workflows.
  */
+import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './firebase-config.js';
 
 // ── Configuration ───────────────────────────────────────────────────────────
 const API_BASE = 'http://localhost:8000';
-const USER_ID  = 'default_user';
+let USER_ID  = null; // Set dynamically via Firebase Auth
+let AUTH_TOKEN = null;
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentThreadId    = null;
 let isThinking         = false;
 let pendingConfirmation = false;
 let conversations      = JSON.parse(localStorage.getItem('ag_conversations') || '[]');
+let recognition        = null;
+let isRecording        = false;
+let isMuted            = true;
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const messagesList        = document.getElementById('messages-list');
@@ -30,11 +35,47 @@ const btnClear            = document.getElementById('btn-clear');
 const btnSidebarToggle    = document.getElementById('btn-sidebar-toggle');
 const sidebar             = document.querySelector('.sidebar');
 const suggestionGrid      = document.getElementById('suggestion-grid');
+const btnLogin            = document.getElementById('btn-login');
+const btnLogout           = document.getElementById('btn-logout');
+const userProfile         = document.getElementById('user-profile');
+const userAvatar          = document.getElementById('user-avatar');
+const btnVoice            = document.getElementById('btn-voice');
+const btnTts              = document.getElementById('btn-tts');
 
 
 // ── Init ──────────────────────────────────────────────────────────────────
 function init() {
   renderConversationList();
+  
+  // Auth State Observer
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      USER_ID = user.uid;
+      AUTH_TOKEN = await user.getIdToken();
+      btnLogin.style.display = 'none';
+      userProfile.style.display = 'flex';
+      userAvatar.src = user.photoURL || 'default-avatar.png';
+      chatInput.disabled = false;
+      chatInput.placeholder = 'Ask me anything…';
+    } else {
+      USER_ID = null;
+      AUTH_TOKEN = null;
+      btnLogin.style.display = 'block';
+      userProfile.style.display = 'none';
+      chatInput.disabled = true;
+      chatInput.placeholder = 'Please sign in to chat...';
+    }
+  });
+
+  // Auth Buttons
+  btnLogin.addEventListener('click', () => {
+    signInWithPopup(auth, provider).catch(err => console.error("Login failed", err));
+  });
+  
+  btnLogout.addEventListener('click', () => {
+    signOut(auth);
+    startNewChat();
+  });
   
   // Auto-resize textarea
   chatInput.addEventListener('input', () => {
@@ -92,6 +133,70 @@ function init() {
       handleSend();
     });
   });
+
+  // ── Web Speech API Setup ──
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    
+    recognition.onstart = () => {
+      isRecording = true;
+      btnVoice.classList.add('recording');
+      chatInput.placeholder = "Listening...";
+    };
+    
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript;
+      }
+      chatInput.value = transcript;
+      chatInput.dispatchEvent(new Event('input'));
+    };
+    
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      stopRecording();
+    };
+    
+    recognition.onend = () => {
+      stopRecording();
+      if (chatInput.value.trim() !== '' && !isThinking) {
+        handleSend();
+      }
+    };
+  } else {
+    if (btnVoice) btnVoice.style.display = 'none';
+  }
+
+  btnVoice?.addEventListener('click', () => {
+    if (isRecording) stopRecording();
+    else startRecording();
+  });
+
+  btnTts?.addEventListener('click', () => {
+    isMuted = !isMuted;
+    btnTts.setAttribute('data-state', isMuted ? 'muted' : 'unmuted');
+    if (isMuted) window.speechSynthesis.cancel();
+  });
+}
+
+function startRecording() {
+  if (recognition && !isRecording) {
+    chatInput.value = '';
+    recognition.start();
+  }
+}
+
+function stopRecording() {
+  if (recognition && isRecording) {
+    recognition.stop();
+    isRecording = false;
+    btnVoice.classList.remove('recording');
+    chatInput.placeholder = USER_ID ? "Ask me anything…" : "Please sign in to chat...";
+  }
 }
 
 
@@ -164,7 +269,10 @@ async function handleSend() {
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      },
       body: JSON.stringify({
         message: text,
         thread_id: currentThreadId,
@@ -194,6 +302,8 @@ async function handleSend() {
       pendingConfirmation = true;
       showBanner(data.confirmation_details || data.response);
     }
+    
+    speak(data.response);
 
   } catch (err) {
     removeThinking(thinkingId);
@@ -211,7 +321,10 @@ async function handleConfirmation(confirmed) {
   try {
     const res = await fetch(`${API_BASE}/api/confirm`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      },
       body: JSON.stringify({
         thread_id: currentThreadId,
         confirmed,
@@ -230,6 +343,8 @@ async function handleConfirmation(confirmed) {
 
     const label = confirmed ? '📅' : '🚫';
     appendMessage('ai', `${label} ${data.response}`, confirmed ? ['calendar'] : []);
+    
+    speak(data.response);
 
   } catch (err) {
     removeThinking(thinkingId);
@@ -239,7 +354,20 @@ async function handleConfirmation(confirmed) {
 }
 
 
-// ── DOM Helpers ───────────────────────────────────────────────────────────
+// ── DOM Helpers & TTS ──────────────────────────────────────────────────────
+function speak(text) {
+  if (isMuted || !window.speechSynthesis) return;
+  // Strip markdown syntax
+  const plainText = text.replace(/[*_#`]/g, '');
+  const utterance = new SpeechSynthesisUtterance(plainText);
+  
+  const voices = window.speechSynthesis.getVoices();
+  const voice = voices.find(v => v.name.includes('Google US English') || v.lang === 'en-US');
+  if (voice) utterance.voice = voice;
+  
+  window.speechSynthesis.speak(utterance);
+}
+
 function appendMessage(role, text, toolTags = []) {
   const wrap = document.createElement('div');
   wrap.className = `message ${role}`;

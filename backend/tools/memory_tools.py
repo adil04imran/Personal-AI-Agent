@@ -1,31 +1,40 @@
 """
 Long-term semantic memory module.
-Interfaces with a local ChromaDB vector database to persist, recall, and manage user-specific facts.
+Interfaces with Firebase Firestore Vector Search to persist, recall, and manage user-specific facts.
 """
 import os
 import uuid
 from datetime import datetime
 from langchain_core.tools import tool
-import chromadb
-from chromadb.config import Settings
+from langchain_google_firestore import FirestoreVectorStore
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
-# Initialize ChromaDB with a persistent local directory
-CHROMA_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "chroma_db")
-_client = None
-_collection = None
+_vector_store = None
+_db = None
 
+def _get_db():
+    global _db
+    if _db is None:
+        _db = firestore.client()
+    return _db
 
-def _get_collection():
-    """Lazily initializes and returns the ChromaDB collection for user memories."""
-    global _client, _collection
-    if _collection is None:
-        os.makedirs(CHROMA_PATH, exist_ok=True)
-        _client = chromadb.PersistentClient(path=CHROMA_PATH)
-        _collection = _client.get_or_create_collection(
-            name="user_memories",
-            metadata={"hnsw:space": "cosine"},
+def _get_vector_store():
+    """Lazily initializes and returns the Firestore Vector Store."""
+    global _vector_store
+    if _vector_store is None:
+        db = _get_db()
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001", 
+            google_api_key=os.getenv("GOOGLE_API_KEY")
         )
-    return _collection
+        _vector_store = FirestoreVectorStore(
+            collection="Memories",
+            embedding_service=embeddings,
+            client=db,
+        )
+    return _vector_store
 
 
 @tool
@@ -46,14 +55,13 @@ def save_memory(fact: str, user_id: str = "default_user") -> str:
     Returns:
         Confirmation message.
     """
-    collection = _get_collection()
+    store = _get_vector_store()
     memory_id = str(uuid.uuid4())
-    collection.add(
-        documents=[fact],
+    store.add_texts(
+        texts=[fact],
         metadatas=[{
             "user_id": user_id,
             "timestamp": datetime.now().isoformat(),
-            "fact": fact,
         }],
         ids=[memory_id],
     )
@@ -73,30 +81,24 @@ def search_memory(query: str, user_id: str = "default_user") -> str:
     Returns:
         A list of relevant memories, or a message indicating none were found.
     """
-    collection = _get_collection()
+    store = _get_vector_store()
     
-    # Check if collection is empty first
-    if collection.count() == 0:
-        return "No memories found. Memory is empty."
-    
-    results = collection.query(
-        query_texts=[query],
-        n_results=min(5, collection.count()),
-        where={"user_id": user_id},
-    )
-    
-    if not results["documents"] or not results["documents"][0]:
-        return f"No memories found related to '{query}'."
-    
-    memories = results["documents"][0]
-    metadatas = results["metadatas"][0]
-    
-    formatted = []
-    for mem, meta in zip(memories, metadatas):
-        ts = meta.get("timestamp", "Unknown date")
-        formatted.append(f"• {mem} (saved: {ts[:10]})")
-    
-    return "🧠 Relevant memories found:\n" + "\n".join(formatted)
+    try:
+        filter = FieldFilter("user_id", "==", user_id)
+        docs = store.similarity_search(query=query, k=5, filters=filter)
+        
+        if not docs:
+            return f"No memories found related to '{query}'."
+            
+        formatted = []
+        for doc in docs:
+            ts = doc.metadata.get("timestamp", "Unknown date")
+            formatted.append(f"• {doc.page_content} (saved: {ts[:10]})")
+            
+        return "🧠 Relevant memories found:\n" + "\n".join(formatted)
+        
+    except Exception as e:
+        return f"Error searching memory: {str(e)}"
 
 
 @tool
@@ -113,26 +115,33 @@ def forget_memory(fact_to_forget: str, user_id: str = "default_user") -> str:
     Returns:
         Confirmation of what was deleted, or a message if nothing was found.
     """
-    collection = _get_collection()
+    store = _get_vector_store()
     
-    if collection.count() == 0:
-        return "Memory is already empty. Nothing to forget."
-    
-    # Find the closest matching memory
-    results = collection.query(
-        query_texts=[fact_to_forget],
-        n_results=1,
-        where={"user_id": user_id},
-    )
-    
-    if not results["documents"] or not results["documents"][0]:
-        return f"Could not find any memory matching '{fact_to_forget}'."
-    
-    memory_to_delete = results["documents"][0][0]
-    memory_id = results["ids"][0][0]
-    
-    collection.delete(ids=[memory_id])
-    return f"🗑️ Memory deleted: '{memory_to_delete}'"
+    try:
+        filter = FieldFilter("user_id", "==", user_id)
+        docs = store.similarity_search(query=fact_to_forget, k=1, filters=filter)
+        
+        if not docs:
+            return f"Could not find any memory matching '{fact_to_forget}'."
+            
+        memory_to_delete = docs[0]
+        # In Firestore, the Document ID is stored as an internal reference. 
+        # But for VectorStore abstraction, deleting by ID requires knowing it.
+        # Alternatively, we can query Firestore directly to find the doc by content.
+        
+        # We can find the document by its page_content
+        db = _get_db()
+        query = db.collection("Memories").where(filter=FieldFilter("user_id", "==", user_id)).where(filter=FieldFilter("content", "==", memory_to_delete.page_content)).limit(1)
+        results = list(query.stream())
+        
+        if results:
+            results[0].reference.delete()
+            return f"🗑️ Memory deleted: '{memory_to_delete.page_content}'"
+        else:
+            return "Failed to delete: Could not locate the exact document ID."
+            
+    except Exception as e:
+        return f"Error forgetting memory: {str(e)}"
 
 
 @tool
@@ -146,19 +155,25 @@ def list_all_memories(user_id: str = "default_user") -> str:
     Returns:
         All stored memories for this user.
     """
-    collection = _get_collection()
+    db = _get_db()
     
-    if collection.count() == 0:
-        return "Memory is completely empty. I don't remember anything yet."
-    
-    results = collection.get(where={"user_id": user_id})
-    
-    if not results["documents"]:
-        return "No memories found for this user."
-    
-    formatted = []
-    for doc, meta in zip(results["documents"], results["metadatas"]):
-        ts = meta.get("timestamp", "Unknown date")
-        formatted.append(f"• {doc} (saved: {ts[:10]})")
-    
-    return f"🧠 All memories ({len(formatted)} total):\n" + "\n".join(formatted)
+    try:
+        query = db.collection("Memories").where(filter=FieldFilter("user_id", "==", user_id))
+        docs = list(query.stream())
+        
+        if not docs:
+            return "No memories found for this user."
+            
+        formatted = []
+        for doc in docs:
+            data = doc.to_dict()
+            content = data.get("content", "Unknown memory")
+            # Metadata is nested in the vector store schema
+            metadata = data.get("metadata", {})
+            ts = metadata.get("timestamp", "Unknown date")
+            formatted.append(f"• {content} (saved: {ts[:10]})")
+            
+        return f"🧠 All memories ({len(formatted)} total):\n" + "\n".join(formatted)
+        
+    except Exception as e:
+        return f"Error listing memories: {str(e)}"

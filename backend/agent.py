@@ -12,7 +12,8 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langchain_google_firestore import FirestoreSaver
+from firebase_admin import firestore
 from typing_extensions import TypedDict
 
 from backend.tools.search_tools import web_search, get_current_time
@@ -153,10 +154,8 @@ def await_confirmation_node(state: AgentState):
 
 
 # ─── Graph Construction ───────────────────────────────────────────────────────
-def create_graph(db_path: str = "data/agent_checkpoints.sqlite"):
-    """Compiles the LangGraph state machine with the SQLite checkpointer."""
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    
+def create_graph():
+    """Compiles the LangGraph state machine with the Firestore checkpointer."""
     tool_node = ToolNode(ALL_TOOLS)
     
     workflow = StateGraph(AgentState)
@@ -178,10 +177,15 @@ def create_graph(db_path: str = "data/agent_checkpoints.sqlite"):
     # After confirmation pause, go to tools to execute
     workflow.add_edge("await_confirmation", "tools")
     
-    # Compile with SQLite checkpointer for conversation memory
-    import sqlite3
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    memory = SqliteSaver(conn)
+    # Compile with Firestore checkpointer for conversation memory
+    try:
+        db = firestore.client()
+        memory = FirestoreSaver(client=db, collection="Checkpoints")
+    except Exception as e:
+        print(f"Warning: Could not connect to Firestore for checkpoints. Using fallback. Error: {e}")
+        from langgraph.checkpoint.memory import MemorySaver
+        memory = MemorySaver()
+        
     graph = workflow.compile(
         checkpointer=memory,
         interrupt_before=["await_confirmation"],
@@ -198,7 +202,5 @@ def get_graph():
     """Returns the singleton graph instance, initializing it if necessary."""
     global _graph
     if _graph is None:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        db_path = os.path.join(base_dir, "data", "agent_checkpoints.sqlite")
-        _graph = create_graph(db_path)
+        _graph = create_graph()
     return _graph
