@@ -1,0 +1,27 @@
+# Core Agent Framework
+langgraph>=0.2.0
+langgraph-checkpoint-sqlite>=2.0.0
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.3.0
+
+# Backend API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Long-Term Memory (Vector DB)
+chromadb>=0.5.0
+
+# Web Search
+tavily-python>=0.5.0
+
+# Google Calendar API
+google-api-python-client>=2.140.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.8.0
+aiofiles>=24.1.0

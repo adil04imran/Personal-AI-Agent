@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal AI Agent</title>
+  <meta name="description" content="Your personal AI assistant with calendar management, long-term memory, and web search capabilities." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Aurora Background -->
+  <div class="aurora" aria-hidden="true">
+    <div class="aurora-orb orb-1"></div>
+    <div class="aurora-orb orb-2"></div>
+    <div class="aurora-orb orb-3"></div>
+  </div>
+
+  <div class="app-shell" id="app-shell">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">✦</div>
+          <span class="brand-name">AI Agent</span>
+        </div>
+        <button class="icon-btn" id="btn-new-chat" title="New conversation" aria-label="New conversation">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="sidebar-section-label">Conversations</div>
+      <nav class="conversation-list" id="conversation-list" aria-label="Conversation history">
+        <!-- Filled by JS -->
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="capability-pills">
+          <span class="cap-pill search" title="Web Search enabled">🔍 Web Search</span>
+          <span class="cap-pill memory" title="Long-term Memory enabled">🧠 Memory</span>
+          <span class="cap-pill calendar" title="Google Calendar enabled">📅 Calendar</span>
+        </div>
+        <p class="model-badge">Gemini 1.5 Flash · Free Tier</p>
+      </div>
+    </aside>
+
+    <!-- ── Main Chat Area ── -->
+    <main class="chat-main" id="chat-main">
+      <!-- Header -->
+      <header class="chat-header">
+        <button class="icon-btn sidebar-toggle" id="btn-sidebar-toggle" aria-label="Toggle sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+        </button>
+        <div class="header-center">
+          <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+          <span class="header-title">Personal AI Agent</span>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btn-clear" title="Clear conversation" aria-label="Clear conversation">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Messages Container -->
+      <div class="messages-wrapper" id="messages-wrapper" role="log" aria-live="polite" aria-label="Chat messages">
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcome-screen">
+          <div class="welcome-icon">✦</div>
+          <h1 class="welcome-title">Your Personal AI Agent</h1>
+          <p class="welcome-subtitle">Powered by Gemini 1.5 Flash · I can remember things, search the web, and manage your Google Calendar.</p>
+          <div class="suggestion-grid" id="suggestion-grid">
+            <button class="suggestion-card" data-message="What are my upcoming calendar events?">
+              <span class="sc-icon">📅</span>
+              <span class="sc-text">View my upcoming events</span>
+            </button>
+            <button class="suggestion-card" data-message="Search the web for the latest AI news today">
+              <span class="sc-icon">🔍</span>
+              <span class="sc-text">Latest AI news</span>
+            </button>
+            <button class="suggestion-card" data-message="Remember that I prefer morning meetings before noon">
+              <span class="sc-icon">🧠</span>
+              <span class="sc-text">Save a preference</span>
+            </button>
+            <button class="suggestion-card" data-message="Schedule a team standup meeting tomorrow at 9 AM">
+              <span class="sc-icon">✨</span>
+              <span class="sc-text">Schedule a meeting</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages list -->
+        <div class="messages-list" id="messages-list"></div>
+      </div>
+
+      <!-- Confirmation Banner -->
+      <div class="confirmation-banner" id="confirmation-banner" role="dialog" aria-modal="true" aria-label="Confirm action" hidden>
+        <div class="confirm-card">
+          <div class="confirm-icon">📅</div>
+          <div class="confirm-content">
+            <p class="confirm-label">Confirm Calendar Event</p>
+            <p class="confirm-detail" id="confirm-detail"></p>
+          </div>
+          <div class="confirm-actions">
+            <button class="btn-cancel" id="btn-cancel-action">Cancel</button>
+            <button class="btn-confirm" id="btn-confirm-action">
+              <span>Confirm</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="input-container" id="input-container">
+          <textarea
+            id="chat-input"
+            class="chat-input"
+            placeholder="Ask me anything…"
+            rows="1"
+            aria-label="Message input"
+            autocomplete="off"
+            spellcheck="true"
+          ></textarea>
+          <button class="send-btn" id="send-btn" aria-label="Send message" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <p class="input-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="main.js" type="module"></script>
+</body>
+</html>
