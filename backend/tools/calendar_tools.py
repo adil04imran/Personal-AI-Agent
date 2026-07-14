@@ -117,10 +117,16 @@ def create_calendar_event(
         )
     
     except FileNotFoundError as e:
+        import traceback
+        traceback.print_exc()
         return f"❌ Google Calendar not configured: {str(e)}"
     except HttpError as e:
+        import traceback
+        traceback.print_exc()
         return f"❌ Google Calendar API error: {str(e)}"
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"❌ Failed to create event: {str(e)}"
 
 
