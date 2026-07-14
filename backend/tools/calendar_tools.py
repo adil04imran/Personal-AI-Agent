@@ -20,10 +20,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "backend", "credentials.json")
 if not os.path.exists(CREDENTIALS_FILE):
     CREDENTIALS_FILE = os.path.join(BASE_DIR, "credentials.json")
+if not os.path.exists(CREDENTIALS_FILE):
+    CREDENTIALS_FILE = "/etc/secrets/credentials.json"
 
 TOKEN_FILE = os.path.join(BASE_DIR, "backend", "token.json")
 if not os.path.exists(TOKEN_FILE):
     TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
+if not os.path.exists(TOKEN_FILE):
+    TOKEN_FILE = "/etc/secrets/token.json"
 
 
 def _get_calendar_service():

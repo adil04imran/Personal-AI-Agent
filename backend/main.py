@@ -28,6 +28,8 @@ load_dotenv()
 firebase_cred_path = os.path.join(os.path.dirname(__file__), "firebase-adminsdk.json")
 if not os.path.exists(firebase_cred_path):
     firebase_cred_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "firebase-adminsdk.json")
+if not os.path.exists(firebase_cred_path):
+    firebase_cred_path = "/etc/secrets/firebase-adminsdk.json"
 if os.path.exists(firebase_cred_path):
     cred = credentials.Certificate(firebase_cred_path)
     firebase_admin.initialize_app(cred)
