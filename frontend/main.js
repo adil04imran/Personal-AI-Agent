@@ -50,11 +50,13 @@ function init() {
   // Handle redirect result on page load (fires after Google redirects back)
   getRedirectResult(auth).then((result) => {
     if (result?.user) {
+      // Successfully signed in via redirect — reload to apply state cleanly
       console.log('Signed in via redirect:', result.user.email);
     }
   }).catch((err) => {
     console.error('Redirect sign-in error:', err.code, err.message);
-    appendSystemMessage(`⚠️ Sign-in failed: ${err.message}`);
+    // Show the exact error so we can diagnose it
+    alert(`Sign-in failed (${err.code}):\n\n${err.message}\n\nPlease check the browser console for more details.`);
   });
 
   // Auth State Observer
