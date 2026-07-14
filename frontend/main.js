@@ -255,7 +255,10 @@ async function handleSend() {
   const text = chatInput.value.trim();
   if (!text || isThinking) return;
 
-  if (!text || isThinking) return;
+  if (!auth.currentUser) {
+    appendMessage('ai', '⚠️ Please sign in with Google first to start chatting!');
+    return;
+  }
 
   welcomeScreen.style.display = 'none';
   appendMessage('user', text);

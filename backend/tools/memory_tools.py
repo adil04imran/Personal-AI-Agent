@@ -131,14 +131,27 @@ def forget_memory(fact_to_forget: str, user_id: str = "default_user") -> str:
         
         # We can find the document by its page_content
         db = _get_db()
-        query = db.collection("Memories").where(filter=FieldFilter("user_id", "==", user_id)).where(filter=FieldFilter("content", "==", memory_to_delete.page_content)).limit(1)
-        results = list(query.stream())
+        # FirestoreVectorStore stores the text in a field called 'content'
+        # Try both 'content' and 'page_content' field names
+        query_ref = db.collection("Memories").where(
+            filter=FieldFilter("user_id", "==", user_id)
+        ).limit(50)
+        results = list(query_ref.stream())
         
-        if results:
-            results[0].reference.delete()
+        # Find the doc with matching content
+        target_doc = None
+        for r in results:
+            data = r.to_dict()
+            stored = data.get("content") or data.get("page_content", "")
+            if stored == memory_to_delete.page_content:
+                target_doc = r
+                break
+        
+        if target_doc:
+            target_doc.reference.delete()
             return f"🗑️ Memory deleted: '{memory_to_delete.page_content}'"
         else:
-            return "Failed to delete: Could not locate the exact document ID."
+            return "Failed to delete: Could not locate the exact document in Firestore."
             
     except Exception as e:
         return f"Error forgetting memory: {str(e)}"
