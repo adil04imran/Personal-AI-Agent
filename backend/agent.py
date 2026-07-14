@@ -48,7 +48,7 @@ ALL_TOOLS = [
 def _get_llm():
     """Initializes and returns the Gemini LLM bound with available tools."""
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.0-flash-lite",
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0.7,
     )
