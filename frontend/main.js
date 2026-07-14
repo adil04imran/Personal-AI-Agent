@@ -2,7 +2,7 @@
  * Application Entry Point & UI Controller
  * Manages the Chat Interface, REST API integrations, and Human-in-the-Loop workflows.
  */
-import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './firebase-config.js';
+import { auth, provider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from './firebase-config.js';
 
 // ── Configuration ───────────────────────────────────────────────────────────
 const API_BASE = 'https://personal-ai-agent-very.onrender.com';
@@ -47,6 +47,16 @@ const btnTts              = document.getElementById('btn-tts');
 function init() {
   renderConversationList();
   
+  // Handle redirect result on page load (fires after Google redirects back)
+  getRedirectResult(auth).then((result) => {
+    if (result?.user) {
+      console.log('Signed in via redirect:', result.user.email);
+    }
+  }).catch((err) => {
+    console.error('Redirect sign-in error:', err.code, err.message);
+    appendSystemMessage(`⚠️ Sign-in failed: ${err.message}`);
+  });
+
   // Auth State Observer
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -54,7 +64,7 @@ function init() {
       AUTH_TOKEN = await user.getIdToken();
       btnLogin.style.display = 'none';
       userProfile.style.display = 'flex';
-      userAvatar.src = user.photoURL || 'default-avatar.png';
+      userAvatar.src = user.photoURL || '';
       chatInput.disabled = false;
       chatInput.placeholder = 'Ask me anything…';
     } else {
@@ -69,7 +79,7 @@ function init() {
 
   // Auth Buttons
   btnLogin.addEventListener('click', () => {
-    signInWithPopup(auth, provider).catch(err => console.error("Login failed", err));
+    signInWithRedirect(auth, provider);
   });
   
   btnLogout.addEventListener('click', () => {
