@@ -279,6 +279,9 @@ async def health():
                     debug_info[path] = f"Error: {str(e)}"
             else:
                 debug_info[path] = "Not found"
+        
+        debug_info["has_google_api_key"] = bool(os.getenv("GOOGLE_API_KEY"))
+        
     except Exception as e:
         debug_info["error"] = str(e)
     
