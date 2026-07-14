@@ -267,7 +267,7 @@ async function handleSend() {
 
   welcomeScreen.style.display = 'none';
   appendMessage('user', text);
-
+  chatInput.value = '';
   chatInput.style.height = 'auto';
   sendBtn.disabled = true;
 
