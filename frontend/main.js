@@ -2,7 +2,7 @@
  * Application Entry Point & UI Controller
  * Manages the Chat Interface, REST API integrations, and Human-in-the-Loop workflows.
  */
-import { auth, provider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from './firebase-config.js';
+import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './firebase-config.js';
 
 // ── Configuration ───────────────────────────────────────────────────────────
 const API_BASE = 'https://personal-ai-agent-very.onrender.com';
@@ -47,18 +47,6 @@ const btnTts              = document.getElementById('btn-tts');
 function init() {
   renderConversationList();
   
-  // Handle redirect result on page load (fires after Google redirects back)
-  getRedirectResult(auth).then((result) => {
-    if (result?.user) {
-      // Successfully signed in via redirect — reload to apply state cleanly
-      console.log('Signed in via redirect:', result.user.email);
-    }
-  }).catch((err) => {
-    console.error('Redirect sign-in error:', err.code, err.message);
-    // Show the exact error so we can diagnose it
-    alert(`Sign-in failed (${err.code}):\n\n${err.message}\n\nPlease check the browser console for more details.`);
-  });
-
   // Auth State Observer
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -80,8 +68,13 @@ function init() {
   });
 
   // Auth Buttons
-  btnLogin.addEventListener('click', () => {
-    signInWithRedirect(auth, provider);
+  btnLogin.addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error('Sign-in error:', err.code, err.message);
+      alert(`Sign-in failed (${err.code}):\n${err.message}`);
+    }
   });
   
   btnLogout.addEventListener('click', () => {
