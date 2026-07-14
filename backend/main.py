@@ -265,7 +265,24 @@ async def confirm_endpoint(req: ConfirmRequest, uid: str = Depends(verify_fireba
 @app.get("/api/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok", "agent": "Personal AI Agent v1.0"}
+    debug_info = {}
+    try:
+        import os
+        import json
+        for path in ["/etc/secrets/credentials.json", "/etc/secrets/token.json", "/etc/secrets/firebase-adminsdk.json"]:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r") as f:
+                        data = json.load(f)
+                        debug_info[path] = f"Valid JSON, keys: {list(data.keys())}"
+                except Exception as e:
+                    debug_info[path] = f"Error: {str(e)}"
+            else:
+                debug_info[path] = "Not found"
+    except Exception as e:
+        debug_info["error"] = str(e)
+    
+    return {"status": "ok", "agent": "Personal AI Agent v1.0", "debug": debug_info}
 
 
 @app.delete("/api/conversation/{thread_id}")
