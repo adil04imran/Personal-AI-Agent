@@ -12,8 +12,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_google_firestore import FirestoreSaver
-from firebase_admin import firestore
+from langgraph.checkpoint.memory import MemorySaver
 from typing_extensions import TypedDict
 
 from backend.tools.search_tools import web_search, get_current_time
@@ -177,14 +176,11 @@ def create_graph():
     # After confirmation pause, go to tools to execute
     workflow.add_edge("await_confirmation", "tools")
     
-    # Compile with Firestore checkpointer for conversation memory
-    try:
-        db = firestore.client()
-        memory = FirestoreSaver(client=db, collection="Checkpoints")
-    except Exception as e:
-        print(f"Warning: Could not connect to Firestore for checkpoints. Using fallback. Error: {e}")
-        from langgraph.checkpoint.memory import MemorySaver
-        memory = MemorySaver()
+    # Use MemorySaver for conversation checkpointing.
+    # Note: FirestoreSaver from langchain-google-firestore is incompatible with
+    # LangGraph 0.6.x (missing get_next_version). Long-term facts are still
+    # stored in Firestore via memory_tools.py.
+    memory = MemorySaver()
         
     graph = workflow.compile(
         checkpointer=memory,
