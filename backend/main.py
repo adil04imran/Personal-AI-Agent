@@ -274,7 +274,14 @@ async def health():
                 try:
                     with open(path, "r") as f:
                         data = json.load(f)
-                        debug_info[path] = f"Valid JSON, keys: {list(data.keys())}"
+                        keys = list(data.keys())
+                        
+                        # Extract specific metadata for debugging (no private keys)
+                        meta = ""
+                        if "private_key_id" in data:
+                            meta = f" (Key ID: {data['private_key_id'][:10]}...)"
+                            
+                        debug_info[path] = f"Valid JSON, keys: {keys}{meta}"
                 except Exception as e:
                     debug_info[path] = f"Error: {str(e)}"
             else:

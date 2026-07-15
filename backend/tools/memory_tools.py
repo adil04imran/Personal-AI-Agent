@@ -20,13 +20,19 @@ def _get_db():
         _db = firestore.client()
     return _db
 
+class TruncatedEmbeddings(GoogleGenerativeAIEmbeddings):
+    def embed_query(self, text: str):
+        return super().embed_query(text)[:768]
+    def embed_documents(self, texts):
+        return [v[:768] for v in super().embed_documents(texts)]
+
 def _get_vector_store():
     """Lazily initializes and returns the Firestore Vector Store."""
     global _vector_store
     if _vector_store is None:
         db = _get_db()
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", 
+        embeddings = TruncatedEmbeddings(
+            model="models/gemini-embedding-2", 
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
         _vector_store = FirestoreVectorStore(
