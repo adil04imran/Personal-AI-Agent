@@ -262,6 +262,20 @@ async def confirm_endpoint(req: ConfirmRequest, uid: str = Depends(verify_fireba
         raise HTTPException(status_code=500, detail=f"Confirmation error: {str(e)}")
 
 
+@app.get("/api/test_memory")
+def test_memory():
+    from backend.tools.memory_tools import save_memory, forget_memory, _get_vector_store
+    import traceback
+    try:
+        # Just test if we can initialize the vector store
+        store = _get_vector_store()
+        res_save = save_memory.invoke({"fact": "Testing Render memory", "user_id": "test_user"})
+        res_forget = forget_memory.invoke({"fact_to_forget": "Testing Render memory", "user_id": "test_user"})
+        return {"status": "success", "save_result": res_save, "forget_result": res_forget}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+
+
 @app.get("/api/health")
 async def health():
     """Health check endpoint."""
