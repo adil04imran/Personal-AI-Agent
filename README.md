@@ -9,6 +9,33 @@ It features long-term memory, web search, and Google Calendar integration with h
 
 ## Architecture Overview
 
+```mermaid
+graph TD
+    User([User]) --> Frontend[HTML/CSS/JavaScript Frontend<br><i>Vanilla JS, HTML, CSS</i>]
+    Frontend -->|REST API POST /chat<br><i>JSON over HTTP</i>| Backend[FastAPI Backend<br><i>Python, Pydantic, Async</i>]
+    Backend --> Agent[LangGraph Agent<br><i>State Machine + Memory + Tools</i>]
+    
+    Agent --> Gemini[Gemini<br><i>Google Gemini 1.5 Flash LLM</i>]
+    Agent --> Tools[Tool Executor<br><i>Executes tools as per LLM decision</i>]
+    
+    Tools --> Calendar[Calendar<br><i>Google Calendar API</i>]
+    Tools --> Firestore[Firestore<br><i>Vector Search / RAG</i>]
+    Tools --> Tavily[Tavily Search<br><i>Web Search API</i>]
+    
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
+    classDef agent fill:#f3e5f5,stroke:#ab47bc,stroke-width:2px;
+    classDef backend fill:#fff8e1,stroke:#ffc107,stroke-width:2px;
+    classDef frontend fill:#e3f2fd,stroke:#2196f3,stroke-width:2px;
+    classDef tool fill:#ffebee,stroke:#f44336,stroke-width:2px;
+    classDef service fill:#e8f5e9,stroke:#4caf50,stroke-width:2px;
+    
+    class Agent agent;
+    class Backend backend;
+    class Frontend frontend;
+    class Tools tool;
+    class Calendar,Firestore,Tavily service;
+```
+
 The application follows a modern decoupled client-server architecture:
 
 1. **Frontend (Client):** A lightweight Vanilla JavaScript, HTML, and CSS single-page application deployed on **Firebase Hosting**. It handles the UI, chat history rendering, and communicates with the backend via REST API.
