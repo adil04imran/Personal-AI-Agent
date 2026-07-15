@@ -90,7 +90,7 @@ def search_memory(query: str, user_id: str = "default_user") -> str:
     store = _get_vector_store()
     
     try:
-        filter = FieldFilter("user_id", "==", user_id)
+        filter = FieldFilter("metadata.user_id", "==", user_id)
         docs = store.similarity_search(query=query, k=5, filters=filter)
         
         if not docs:
@@ -127,7 +127,7 @@ def forget_memory(fact_to_forget: str, user_id: str = "default_user") -> str:
     store = _get_vector_store()
     
     try:
-        filter = FieldFilter("user_id", "==", user_id)
+        filter = FieldFilter("metadata.user_id", "==", user_id)
         docs = store.similarity_search(query=fact_to_forget, k=1, filters=filter)
         
         if not docs:
