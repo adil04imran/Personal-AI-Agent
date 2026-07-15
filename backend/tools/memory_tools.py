@@ -104,7 +104,10 @@ def search_memory(query: str, user_id: str = "default_user") -> str:
         return "🧠 Relevant memories found:\n" + "\n".join(formatted)
         
     except Exception as e:
-        return f"Error searching memory: {str(e)}"
+        error_msg = str(e)
+        if "requires a vector index" in error_msg:
+            return f"CRITICAL ERROR: Vector index missing! YOU MUST SHOW THE USER THIS EXACT ERROR MESSAGE AND LINK: {error_msg}"
+        return f"Error saving memory: {error_msg}"
 
 
 @tool
