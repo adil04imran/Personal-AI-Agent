@@ -1,13 +1,13 @@
-# 🤖 Personal AI Agent
+# Personal AI Agent
 
 A fully-featured personal assistant built with **LangGraph + Google Gemini 1.5 Flash**. 
 It features long-term memory, web search, and Google Calendar integration with human-in-the-loop safety controls.
 
-🌍 **Live Demo:** [https://personal-ai-agent-3abfc.web.app](https://personal-ai-agent-3abfc.web.app)
+ **Live Demo:** [https://personal-ai-agent-3abfc.web.app](https://personal-ai-agent-3abfc.web.app)
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 The application follows a modern decoupled client-server architecture:
 
@@ -19,7 +19,7 @@ The application follows a modern decoupled client-server architecture:
 
 ---
 
-## 🤔 Candidate Decisions & Trade-offs
+##  Candidate Decisions & Trade-offs
 
 | Component | Choice | Rationale & Trade-offs |
 | :--- | :--- | :--- |
@@ -31,7 +31,7 @@ The application follows a modern decoupled client-server architecture:
 
 ---
 
-## 🧠 Memory Design
+##  Memory Design
 
 The agent utilizes a dual-memory system:
 1. **Short-term Memory:** Managed automatically by LangGraph's `MemorySaver` using a local SQLite database (`data/agent_checkpoints.sqlite`). This allows the agent to remember context within a conversation thread without needing to query a database.
@@ -39,14 +39,14 @@ The agent utilizes a dual-memory system:
 
 ---
 
-## 🛡️ Confirmation & Safety Controls (Human-in-the-loop)
+##  Confirmation & Safety Controls (Human-in-the-loop)
 
 To prevent the agent from taking unauthorized destructive or scheduling actions, the **Google Calendar** integration implements a strict human-in-the-loop confirmation flow. 
 When the user asks to schedule an event, the agent prepares the event details but does **not** execute the API call. Instead, it pauses and prompts the user with `[Confirm / Cancel]`. The frontend detects this state and locks the input, awaiting explicit user approval before proceeding.
 
 ---
 
-## 🚀 Local Setup Instructions
+##  Local Setup Instructions
 
 ### 1. Clone & Install Dependencies
 
@@ -86,7 +86,7 @@ Then simply open `frontend/index.html` in your browser.
 
 ---
 
-## 💬 Sample Conversations
+##  Sample Conversations
 
 **1. Long-Term Memory & Deletion**
 ```text
@@ -110,9 +110,9 @@ Agent: [Web Search] Python 3.13 was released in October 2024...
 ```text
 You: Schedule a team standup tomorrow at 10 AM for 30 minutes
 Agent: I'll create this event:
-  📅 Team Standup
-  🕐 Start: 2026-07-16T10:00:00
-  🕐 End: 2026-07-16T10:30:00
+   Team Standup
+   Start: 2026-07-16T10:00:00
+   End: 2026-07-16T10:30:00
   Should I go ahead? [Confirm / Cancel]
 
 You: Yes
