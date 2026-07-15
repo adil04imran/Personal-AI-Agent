@@ -143,7 +143,7 @@ def forget_memory(fact_to_forget: str, user_id: str = "default_user") -> str:
         # FirestoreVectorStore stores the text in a field called 'content'
         # Try both 'content' and 'page_content' field names
         query_ref = db.collection("Memories").where(
-            filter=FieldFilter("user_id", "==", user_id)
+            filter=FieldFilter("metadata.user_id", "==", user_id)
         ).limit(50)
         results = list(query_ref.stream())
         
